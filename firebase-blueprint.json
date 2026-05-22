@@ -1,0 +1,127 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["email", "name", "role", "createdAt"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "A fashion event",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "number", "description": "Timestamp" },
+        "location": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "price": { "type": "number" },
+        "totalTickets": { "type": "number" },
+        "availableTickets": { "type": "number" },
+        "createdAt": { "type": "number", "description": "Timestamp" },
+        "updatedAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["title", "description", "date", "location", "price", "totalTickets", "availableTickets", "createdAt", "updatedAt"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "A ticket purchased by a user for an event",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string" },
+        "userId": { "type": "string" },
+        "purchaseDate": { "type": "number", "description": "Timestamp" },
+        "status": { "type": "string", "enum": ["active", "used", "cancelled"] },
+        "qrCodeData": { "type": "string" }
+      },
+      "required": ["eventId", "userId", "purchaseDate", "status", "qrCodeData"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "User's portfolio post",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "likes": { "type": "number" },
+        "comments": { "type": "number" },
+        "createdAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["userId", "imageUrl", "likes", "comments", "createdAt"]
+    },
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "Newsletter email subscriber",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Sponsorship": {
+      "title": "Sponsorship",
+      "description": "Sponsorship applications",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["brandName", "email", "message", "createdAt", "status"]
+    },
+    "JobApplication": {
+      "title": "Job Application",
+      "description": "Job/internship applications",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "number" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["jobId", "userId", "name", "email", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Users collection"
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Fashion events collection"
+    },
+    "/tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/Ticket" },
+      "description": "Tickets purchased by users"
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "User posts in their portfolio"
+    },
+    "/subscribers/{subscriberId}": {
+      "schema": { "$ref": "#/entities/Subscriber" },
+      "description": "Emails subscribed to updates"
+    },
+    "/sponsorships/{sponsorshipId}": {
+      "schema": { "$ref": "#/entities/Sponsorship" },
+      "description": "Sponsorship applications"
+    },
+    "/jobApplications/{applicationId}": {
+      "schema": { "$ref": "#/entities/JobApplication" },
+      "description": "Job/internship applications"
+    }
+  }
+}

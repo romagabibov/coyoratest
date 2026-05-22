@@ -1,0 +1,229 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+    
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        ('email' in request.auth.token && request.auth.token.email == 'vnsbek@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+    
+    function isValidUser(data) {
+      return data.keys().hasOnly(['email', 'name', 'role', 'createdAt', 'onboardingComplete', 'industry', 'degree', 'interestLevel', 'ageGroup', 'primaryGoal', 'avatarUrl', 'bio', 'links', 'lastProfileUpdate']) &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.role is string && (data.role == 'user' || data.role == 'admin') &&
+             data.createdAt is number &&
+             (data.keys().hasAll(['onboardingComplete']) ? data.onboardingComplete is bool : true) &&
+             (data.keys().hasAll(['industry']) ? data.industry is string : true) &&
+             (data.keys().hasAll(['degree']) ? data.degree is string : true) &&
+             (data.keys().hasAll(['interestLevel']) ? data.interestLevel is string : true) &&
+             (data.keys().hasAll(['ageGroup']) ? data.ageGroup is string : true) &&
+             (data.keys().hasAll(['primaryGoal']) ? data.primaryGoal is string : true) &&
+             (data.keys().hasAll(['avatarUrl']) ? data.avatarUrl is string : true) &&
+             (data.keys().hasAll(['bio']) ? data.bio is string && data.bio.size() <= 500 : true) &&
+             (data.keys().hasAll(['links']) ? data.links is string : true) &&
+             (data.keys().hasAll(['lastProfileUpdate']) ? data.lastProfileUpdate is number : true);
+    }
+    
+    match /users/{userId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidId(userId) && isValidUser(incoming()) && (incoming().role == 'user' || (incoming().role == 'admin' && request.auth.token.email == 'vnsbek@gmail.com'));
+      allow update: if isSignedIn() && isValidUser(incoming()) && incoming().createdAt == existing().createdAt && (
+        isAdmin() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'onboardingComplete', 'industry', 'degree', 'interestLevel', 'ageGroup', 'primaryGoal', 'avatarUrl', 'bio', 'links', 'lastProfileUpdate']) && incoming().role == existing().role)
+      );
+      allow delete: if isAdmin();
+    }
+    
+    function isValidEvent(data) {
+      return data.keys().hasOnly(['title', 'description', 'date', 'location', 'imageUrl', 'price', 'totalTickets', 'availableTickets', 'createdAt', 'updatedAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 5000 &&
+             data.date is number &&
+             data.location is string && data.location.size() <= 200 &&
+             data.imageUrl is string && data.imageUrl.size() <= 2000 &&
+             data.price is number && data.price >= 0 &&
+             data.totalTickets is number && data.totalTickets >= 0 &&
+             data.availableTickets is number && data.availableTickets >= 0 && data.availableTickets <= data.totalTickets &&
+             data.createdAt is number && data.updatedAt is number;
+    }
+    
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
+      allow update: if (isAdmin() && isValidEvent(incoming()) && incoming().createdAt == existing().createdAt) ||
+                       (isSignedIn() && isValidEvent(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['availableTickets']) && incoming().availableTickets == existing().availableTickets - 1);
+      allow delete: if isAdmin();
+    }
+    
+    function isValidTicket(data) {
+       return data.keys().hasOnly(['eventId', 'userId', 'purchaseDate', 'status', 'qrCodeData']) &&
+              data.eventId is string &&
+              data.userId is string &&
+              data.purchaseDate is number &&
+              data.status is string && (data.status == 'active' || data.status == 'used' || data.status == 'cancelled') &&
+              data.qrCodeData is string && data.qrCodeData.size() <= 1000;
+    }
+    
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(ticketId) && isValidTicket(incoming()) &&
+                    incoming().userId == request.auth.uid &&
+                    incoming().status == 'active' &&
+                    exists(/databases/$(database)/documents/events/$(incoming().eventId));
+      allow update: if (isAdmin() && isValidTicket(incoming()) && incoming().eventId == existing().eventId && incoming().userId == existing().userId && incoming().purchaseDate == existing().purchaseDate);
+      allow delete: if isAdmin();
+    }
+    
+    function isValidPost(data) {
+       return data.keys().hasOnly(['userId', 'imageUrl', 'likes', 'comments', 'createdAt', 'description']) &&
+              data.userId is string &&
+              data.imageUrl is string && data.imageUrl.size() <= 1048487 &&
+              data.likes is number && data.likes >= 0 &&
+              data.comments is number && data.comments >= 0 &&
+              data.createdAt is timestamp &&
+              (data.keys().hasAll(['description']) ? data.description is string && data.description.size() <= 2000 : true);
+    }
+    
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(postId) && isValidPost(incoming()) &&
+                    incoming().userId == request.auth.uid && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidPost(incoming()) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt && (incoming().userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidFeedPost(data) {
+       return data.keys().hasOnly(['userId', 'content', 'imageUrl', 'likesCount', 'commentsCount', 'createdAt']) &&
+              data.userId is string &&
+              data.content is string && data.content.size() <= 3000 &&
+              (data.keys().hasAll(['imageUrl']) ? data.imageUrl is string : true) &&
+              data.likesCount is number && data.likesCount >= 0 &&
+              data.commentsCount is number && data.commentsCount >= 0 &&
+              data.createdAt is timestamp;
+    }
+
+    match /feedPosts/{postId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(postId) && isValidFeedPost(incoming()) &&
+                    incoming().userId == request.auth.uid && incoming().createdAt == request.time && incoming().likesCount == 0 && incoming().commentsCount == 0;
+      allow update: if isSignedIn() && isValidFeedPost(incoming()) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt && (
+        (incoming().userId == request.auth.uid) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'commentsCount'])) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidFeedComment(data) {
+       return data.keys().hasOnly(['postId', 'userId', 'content', 'createdAt']) &&
+              data.postId is string &&
+              data.userId is string &&
+              data.content is string && data.content.size() > 0 && data.content.size() <= 1000 &&
+              data.createdAt is timestamp;
+    }
+
+    match /feedComments/{commentId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(commentId) && isValidFeedComment(incoming()) &&
+                    incoming().userId == request.auth.uid && incoming().createdAt == request.time &&
+                    exists(/databases/$(database)/documents/feedPosts/$(incoming().postId));
+      allow update: if isSignedIn() && isValidFeedComment(incoming()) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt && incoming().postId == existing().postId && (incoming().userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidFeedLike(data) {
+       return data.keys().hasOnly(['postId', 'userId', 'createdAt']) &&
+              data.postId is string &&
+              data.userId is string &&
+              data.createdAt is timestamp;
+    }
+
+    match /feedLikes/{likeId} {
+       allow read, list: if isSignedIn();
+       allow create: if isSignedIn() && isValidId(likeId) && isValidFeedLike(incoming()) &&
+                     incoming().userId == request.auth.uid && incoming().createdAt == request.time &&
+                     exists(/databases/$(database)/documents/feedPosts/$(incoming().postId));
+       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    function isValidSubscriber(data) {
+       return data.keys().hasOnly(['email', 'createdAt']) &&
+              data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+              data.createdAt is timestamp;
+    }
+
+    match /subscribers/{subscriberId} {
+      allow create: if isValidSubscriber(incoming()) && incoming().createdAt == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+
+    function isValidSponsorship(data) {
+       return data.keys().hasOnly(['brandName', 'email', 'message', 'createdAt', 'status']) &&
+              data.brandName is string && data.brandName.size() > 0 &&
+              data.email is string && data.email.size() > 0 &&
+              data.message is string &&
+              data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected') &&
+              data.createdAt is timestamp;
+    }
+
+    match /sponsorships/{sponsorshipId} {
+      allow create: if isValidSponsorship(incoming()) && incoming().createdAt == request.time && incoming().status == 'pending';
+      allow read, update, delete: if isAdmin();
+    }
+
+    function isValidVacancy(data) {
+       return data.keys().hasOnly(['employerId', 'title', 'description', 'location', 'type', 'isPaid', 'createdAt']) &&
+              data.employerId is string && data.employerId.size() > 0 &&
+              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+              data.description is string && data.description.size() > 0 && data.description.size() <= 5000 &&
+              (data.keys().hasAll(['location']) ? data.location is string : true) &&
+              (data.keys().hasAll(['type']) ? data.type is string : true) &&
+              data.isPaid is bool &&
+              data.createdAt is timestamp;
+    }
+
+    match /vacancies/{vacancyId} {
+      allow list, read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(vacancyId) && isValidVacancy(incoming()) &&
+                    incoming().employerId == request.auth.uid && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidVacancy(incoming()) && incoming().employerId == existing().employerId && incoming().createdAt == existing().createdAt && (incoming().employerId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (existing().employerId == request.auth.uid || isAdmin());
+    }
+
+    function isValidJobApplication(data) {
+       return data.keys().hasOnly(['jobId', 'userId', 'name', 'email', 'coverLetter', 'status', 'createdAt']) &&
+              data.keys().hasAll(['jobId', 'userId', 'name', 'email', 'status', 'createdAt']) &&
+              data.jobId is string &&
+              data.userId is string && data.userId.size() > 0 &&
+              data.name is string && data.name.size() > 0 &&
+              data.email is string && data.email.size() > 0 &&
+              (data.keys().hasAll(['coverLetter']) ? data.coverLetter is string : true) &&
+              data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected') &&
+              data.createdAt is timestamp;
+    }
+
+    match /jobApplications/{applicationId} {
+      allow create: if isSignedIn() && isValidJobApplication(incoming()) && incoming().userId == request.auth.uid && incoming().createdAt == request.time && incoming().status == 'pending' && exists(/databases/$(database)/documents/vacancies/$(incoming().jobId));
+      allow read, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin() || (exists(/databases/$(database)/documents/vacancies/$(resource.data.jobId)) && get(/databases/$(database)/documents/vacancies/$(resource.data.jobId)).data.employerId == request.auth.uid));
+      allow update: if isSignedIn() && isValidJobApplication(incoming()) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt && incoming().jobId == existing().jobId && (
+         (exists(/databases/$(database)/documents/vacancies/$(existing().jobId)) && get(/databases/$(database)/documents/vacancies/$(existing().jobId)).data.employerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+         isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+  }
+}

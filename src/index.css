@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  
+  --color-brand-light: var(--brand-light);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-muted: var(--brand-muted);
+}
+
+@layer base {
+  :root {
+    --brand-light: #ffffff;
+    --brand-dark: #000000;
+    --brand-accent: #ff3300;
+    --brand-muted: #f0f0f0;
+  }
+
+  .dark {
+    --brand-light: #161616;
+    --brand-dark: #e8e8e8;
+    --brand-accent: #ff5522;
+    --brand-muted: #222222;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-brand-light);
+    color: var(--color-brand-dark);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    cursor: none;
+  }
+}
+
+* {
+  cursor: none !important;
+}
+
+.brand-button {
+  background-color: var(--color-brand-dark);
+  color: var(--color-brand-light);
+  transition: all 0.3s ease;
+  font-weight: 700;
+  padding: 1rem 2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 2px solid var(--color-brand-dark);
+}
+
+.brand-button:hover {
+  background-color: var(--color-brand-light);
+  color: var(--color-brand-dark);
+  transform: translate(-4px, -4px);
+  box-shadow: 4px 4px 0px var(--color-brand-dark);
+}
+
+.card-brutal {
+  background-color: var(--color-brand-light);
+  border: 2px solid var(--color-brand-dark);
+  transition: all 0.3s ease;
+}
+
+.card-brutal:hover {
+  transform: translate(-4px, -4px);
+  box-shadow: 6px 6px 0px var(--color-brand-dark);
+}
+
+.marquee-container {
+  overflow: hidden;
+  white-space: nowrap;
+  display: flex;
+  background-color: var(--color-brand-dark);
+  color: var(--color-brand-light);
+  padding: 1rem 0;
+  border-top: 2px solid var(--color-brand-dark);
+  border-bottom: 2px solid var(--color-brand-dark);
+}
+
+.marquee-content {
+  display: inline-flex;
+  animation: marquee 20s linear infinite;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-brand-dark) var(--color-brand-light);
+}
